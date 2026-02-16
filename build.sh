@@ -1,5 +1,7 @@
 #!/bin/bash
-
+# Install
+export NVM_DIR="/root/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 # Remove old files
 rm -rf node_modules prisma/client dist
 
