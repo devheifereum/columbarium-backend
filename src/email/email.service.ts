@@ -25,6 +25,10 @@ export class EmailService {
           user: this.config.get<string>('SMTP_USER'),
           pass: this.config.get<string>('SMTP_PASSWORD'),
         },
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: 'TLSv1.2',
+        },
       });
     }
   }
