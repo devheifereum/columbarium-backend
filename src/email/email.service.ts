@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import type { Transporter } from 'nodemailer';
+import { Resend } from 'resend';
 
 export interface SendMailOptions {
   to: string;
@@ -12,44 +11,44 @@ export interface SendMailOptions {
 
 @Injectable()
 export class EmailService {
-  private transporter: Transporter | null = null;
+  private resend: Resend | null = null;
+  private from: string;
 
   constructor(private readonly config: ConfigService) {
-    const host = this.config.get<string>('SMTP_HOST');
-    if (host) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port: this.config.get<number>('SMTP_PORT', 587),
-        secure: this.config.get<number>('SMTP_PORT') === 465,
-        auth: {
-          user: this.config.get<string>('SMTP_USER'),
-          pass: this.config.get<string>('SMTP_PASSWORD'),
-        },
-        tls: {
-          rejectUnauthorized: true,
-          minVersion: 'TLSv1.2',
-        },
-      });
+    const apiKey = this.config.get<string>('RESEND_API_KEY');
+    if (apiKey) {
+      this.resend = new Resend(apiKey);
     }
+    this.from =
+      this.config.get<string>('EMAIL_FROM') || 'noreply@columbarium.local';
   }
 
   async send(options: SendMailOptions): Promise<void> {
-    if (!this.transporter) {
-      // In development without SMTP, log instead of failing
-      console.warn('[Email] SMTP not configured. Would have sent:', options);
+    if (!this.resend) {
+      console.warn(
+        '[Email] Resend not configured (missing RESEND_API_KEY). Would have sent:',
+        options,
+      );
       return;
     }
-    const from = this.config.get<string>('SMTP_FROM') || 'noreply@columbarium.local';
-    await this.transporter.sendMail({
-      from,
-      to: options.to,
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: [options.to],
       subject: options.subject,
       html: options.html,
       text: options.text,
     });
+
+    if (error) {
+      throw new Error(`Failed to send email: ${error.message}`);
+    }
   }
 
-  async sendVerificationEmail(email: string, verificationLink: string): Promise<void> {
+  async sendVerificationEmail(
+    email: string,
+    verificationLink: string,
+  ): Promise<void> {
     const subject = 'Verify your email – Columbarium';
     const html = `
       <!DOCTYPE html>
