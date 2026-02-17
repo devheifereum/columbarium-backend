@@ -34,16 +34,23 @@ export class AuthService {
     const frontendUrl = this.config.get<string>('APP_FRONTEND_URL', 'http://localhost:3000');
     const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
-    await this.prisma.$transaction(async (tx) => {
-      const createdUser = await this.usersService.create(email, password, tx);
+    const createdUser = await this.prisma.$transaction(async (tx) => {
+      const user = await this.usersService.create(email, password, tx);
       await tx.emailVerificationToken.create({
-        data: { token, userId: createdUser.id, expiresAt },
+        data: { token, userId: user.id, expiresAt },
       });
-      await this.emailService.sendVerificationEmail(createdUser.email, verificationLink);
+      return user;
     });
 
+    // Send email outside the transaction to avoid SMTP latency causing a transaction timeout
+    await this.emailService.sendVerificationEmail(
+      createdUser.email,
+      verificationLink,
+    );
+
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message:
+        'Registration successful. Please check your email to verify your account.',
     };
   }
 
