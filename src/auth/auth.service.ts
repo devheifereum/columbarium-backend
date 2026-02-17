@@ -25,24 +25,22 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly emailService: EmailService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   async signUp(email: string, password: string): Promise<{ message: string }> {
     const token = uuidv4();
     const expiresIn = this.config.get<string>('EMAIL_VERIFICATION_EXPIRES_IN', '24h');
     const expiresAt = this.parseExpiry(expiresIn);
+    const frontendUrl = this.config.get<string>('APP_FRONTEND_URL', 'http://localhost:3000');
+    const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
 
-    const user = await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       const createdUser = await this.usersService.create(email, password, tx);
       await tx.emailVerificationToken.create({
         data: { token, userId: createdUser.id, expiresAt },
       });
-      return createdUser;
+      await this.emailService.sendVerificationEmail(createdUser.email, verificationLink);
     });
-
-    const frontendUrl = this.config.get<string>('APP_FRONTEND_URL', 'http://localhost:3000');
-    const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
-    await this.emailService.sendVerificationEmail(user.email, verificationLink);
 
     return {
       message: 'Registration successful. Please check your email to verify your account.',
