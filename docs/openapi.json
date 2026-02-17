@@ -358,6 +358,65 @@
         }
       }
     },
+    "/auth/resend-verification-email": {
+      "post": {
+        "summary": "Resend Verification Email",
+        "description": "Resends the email verification link to the given email address. Invalidates any previously issued tokens and creates a fresh one. Returns a generic success message regardless of whether the email is registered or already verified, to prevent email enumeration.",
+        "operationId": "resendVerificationEmail",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address of the account to resend verification for",
+                    "example": "user@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Request accepted (always returns success to prevent email enumeration)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "If an account with that email exists and is not yet verified, a new verification email has been sent."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "statusCode": { "type": "number", "example": 400 },
+                    "message": { "type": "string", "example": "email must be an email" },
+                    "error": { "type": "string", "example": "Bad Request" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/profile": {
       "get": {
         "summary": "Get Profile",
