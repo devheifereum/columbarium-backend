@@ -98,6 +98,42 @@ export class AuthService {
     };
   }
 
+  async resendVerificationEmail(email: string): Promise<{ message: string }> {
+    const successMessage =
+      'If an account with that email exists and is not yet verified, a new verification email has been sent.';
+
+    const user = await this.usersService.findByEmail(email);
+    if (!user || user.emailVerified) {
+      return { message: successMessage };
+    }
+
+    // Invalidate all existing unused tokens for this user
+    await this.prisma.emailVerificationToken.updateMany({
+      where: { userId: user.id, used: false },
+      data: { used: true },
+    });
+
+    const token = uuidv4();
+    const expiresIn = this.config.get<string>(
+      'EMAIL_VERIFICATION_EXPIRES_IN',
+      '24h',
+    );
+    const expiresAt = this.parseExpiry(expiresIn);
+    const frontendUrl = this.config.get<string>(
+      'APP_FRONTEND_URL',
+      'http://localhost:3000',
+    );
+    const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+
+    await this.prisma.emailVerificationToken.create({
+      data: { token, userId: user.id, expiresAt },
+    });
+
+    await this.emailService.sendVerificationEmail(user.email, verificationLink);
+
+    return { message: successMessage };
+  }
+
   async cleanupExpiredTokens(): Promise<void> {
     await this.prisma.emailVerificationToken.deleteMany({
       where: { expiresAt: { lt: new Date() } },
